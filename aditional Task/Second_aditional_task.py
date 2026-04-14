@@ -1,153 +1,102 @@
-from __future__ import annotations
+class BinaryTree:
+    def __init__(self, v=0):
+        self.value = v
+        self.left = None
+        self.right = None
 
-from dataclasses import dataclass, field
-from pathlib import Path
+    def __build_from_inorder(self, values):
+        if not values:
+            return None
+        mid = len(values) // 2
+        node = BinaryTree(values[mid])
+        node.left = self.__build_from_inorder(values[:mid])
+        node.right = self.__build_from_inorder(values[mid + 1:])
+        return node
 
+    def __get_h(self, n):
+        if not n: return 0
+        return max(self.__get_h(n.left), self.__get_h(n.right)) + 1
 
-FILE_NAME = "tree.txt"
+    def __put(self, m, r, c, val):
+        s = str(val)
+        offset = len(s) // 2
+        for i in range(len(s)):
+            pos = c + i - offset
+            if 0 <= r < len(m) and 0 <= pos < len(m[0]):
+                m[r][pos] = s[i]
 
+    def __fill(self, n, m, r, c, side, gr, gc):
+        if not n: return
+        self.__put(m, r, c, n.value)
+        s_len = len(str(n.value))
+        left_conn = c - (s_len // 2) - 1
+        right_conn = c + (s_len - s_len // 2)
+        nr = max(2, gr - 2)
+        if side == "root":
+            if n.left:
+                m[r][left_conn] = "-"
+                self.__fill(n.left, m, r, c - gc, "left", gr, gc)
+            if n.right:
+                m[r][right_conn] = "-"
+                self.__fill(n.right, m, r, c + gc, "right", gr, gc)
+        elif side == "left":
+            if n.left:
+                m[r - 1][left_conn] = "\\"
+                self.__fill(n.left, m, r - gr, c - gc, "left", nr, gc)
+            if n.right:
+                m[r + 1][left_conn] = "/"
+                self.__fill(n.right, m, r + gr, c - gc, "left", nr, gc)
+        elif side == "right":
+            if n.left:
+                m[r - 1][right_conn] = "/"
+                self.__fill(n.left, m, r - gr, c + gc, "right", nr, gc)
+            if n.right:
+                m[r + 1][right_conn] = "\\"
+                self.__fill(n.right, m, r + gr, c + gc, "right", nr, gc)
 
-@dataclass
-class Node:
-    val: int
-    left: Node | None = field(default=None, repr=False)
-    right: Node | None = field(default=None, repr=False)
+    def load(self, filename):
+        try:
+            with open(filename, "r") as f:
+                values = list(map(int, f.read().split()))
+            if values:
+                mid = len(values) // 2
+                self.value = values[mid]
+                self.left = self.__build_from_inorder(values[:mid])
+                self.right = self.__build_from_inorder(values[mid + 1:])
+        except Exception as e:
+            print(f"Помилка читання файлу: {e}")
 
+    def print_tree(self):
+        rows, cols = 45, 80
+        m = [[" " for _ in range(cols)] for _ in range(rows)]
+        self.__fill(self, m, rows // 2, cols // 2, "root", 6, 6)
+        print("\n")
+        for r in m:
+            line = "".join(r).rstrip()
+            if line: print(line)
 
-def insert(root: Node | None, val: int) -> Node:
-    if root is None:
-        return Node(val)
-    if val < root.val:
-        root.left = insert(root.left, val)
-    elif val > root.val:
-        root.right = insert(root.right, val)
-    return root
+    def print_inorder(self):
+        def p(n):
+            if not n: return
+            p(n.left)
+            print(n.value, end=" ")
+            p(n.right)
+        print("інордер:", end=" ")
+        p(self)
+        print()
 
-
-def build_tree(values: list[int]) -> Node | None:
-    root = None
-    for v in values:
-        root = insert(root, v)
-    return root
-
-
-@dataclass
-class NodeInfo:
-    val: int
-    col: int
-    row: int
-    parent: NodeInfo | None = field(default=None, repr=False)
-    is_left: bool = False
-
-
-def _collect(node, col, parent, is_left, ctr, result):
-    if node is None:
-        return
-    info = NodeInfo(node.val, col, -1, parent, is_left)
-    result.append(info)
-    _collect(node.left, col + 1, info, True, ctr, result)
-    info.row = ctr[0]
-    ctr[0] += 1
-    _collect(node.right, col + 1, info, False, ctr, result)
-
-
-def get_positions(root):
-    result = []
-    _collect(root, 0, None, False, [0], result)
-    return result
-
-
-def _build_grid(nodes):
-    root = next(n for n in nodes if n.parent is None)
-    label_w = max(len(str(n.val)) for n in nodes)
-    step = label_w + 2
-
-    max_col = max(n.col for n in nodes)
-    n_rows = len(nodes)
-    n_cols = (max_col + 1) * step + label_w + 2
-
-    grid = [[" "] * n_cols for _ in range(n_rows)]
-
-    def put(r, c, s):
-        for i, ch in enumerate(s):
-            if 0 <= r < n_rows and 0 <= c + i < n_cols:
-                grid[r][c + i] = ch
-
-    def node_x(col):
-        return col * step
-
-    def vert_x(col):
-        return node_x(col) + label_w
-
-    for n in nodes:
-        if n.parent is None:
-            continue
-
-        pr, cr = n.parent.row, n.row
-        vx = vert_x(n.parent.col)
-
-        step_r = -1 if cr < pr else 1
-        for r in range(pr + step_r, cr, step_r):
-            if grid[r][vx] == " ":
-                put(r, vx, "|")
-
-        put(cr, vx, "/" if n.is_left else "\\")
-
-        cx = node_x(n.col)
-        for c in range(vx + 1, cx):
-            put(cr, c, "-")
-
-    for n in nodes:
-        put(n.row, node_x(n.col), str(n.val))
-
-    lines = ["".join(r).rstrip() for r in grid]
-    return lines, root.row, node_x(root.col)
+    def is_balanced(self):
+        def check(n):
+            if not n: return 0
+            l, r = check(n.left), check(n.right)
+            if l == -1 or r == -1 or abs(l - r) > 1: return -1
+            return max(l, r) + 1
+        return check(self) != -1
 
 
-def print_top_view(nodes):
-    lines, center_row, root_x = _build_grid(nodes)
-
-    print("\n  Вид зверху  (ліво <--- корінь ---> право)\n")
-
-    for i, line in enumerate(lines):
-        left = line[:root_x].rstrip()
-        right = line[root_x + len(str(nodes[0].val)) :].rstrip()
-
-        if i == center_row:
-            print(f"{left}  {line[root_x:root_x+len(str(nodes[0].val))]}  {right}")
-        else:
-            print(f"{left}     {right}")
-
-
-def _print_inorder(node):
-    if node is None:
-        return
-    _print_inorder(node.left)
-    print(node.val, end=" ")
-    _print_inorder(node.right)
-
-
-def _read_values(path):
-    tokens = path.read_text().split()
-    return [int(t) for t in tokens if t.lstrip("-").isdigit()]
-
-
-def main():
-    path = Path(FILE_NAME)
-    if not path.exists():
-        print("Файл не знайдено")
-        return
-
-    values = _read_values(path)
-    root = build_tree(values)
-
-    print("Inorder:", end=" ")
-    _print_inorder(root)
-    print()
-
-    nodes = get_positions(root)
-    print_top_view(nodes)
-
-
-if __name__ == "__main__":
-    main()
+tree = BinaryTree()
+tree.load("tree1.txt")
+tree.print_inorder()
+tree.print_tree()
+print("")
+print("збалансоване:", tree.is_balanced())
