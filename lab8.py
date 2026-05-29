@@ -1,4 +1,4 @@
-import sys
+import os
 
 
 def count_paths(width: int, height: int, corridor: list[str]) -> int:
@@ -8,7 +8,9 @@ def count_paths(width: int, height: int, corridor: list[str]) -> int:
 
     for row in range(height):
         letter = corridor[row][0]
-        letter_totals[letter] = letter_totals.get(letter, 0) + 1
+        letter_totals[letter] = (
+            letter_totals.get(letter, 0) + 1
+        )
 
     for column in range(1, width):
         current_column = [0] * height
@@ -26,8 +28,10 @@ def count_paths(width: int, height: int, corridor: list[str]) -> int:
 
         for row in range(height):
             letter = corridor[row][column]
+
             letter_totals[letter] = (
-                letter_totals.get(letter, 0) + current_column[row]
+                letter_totals.get(letter, 0)
+                + current_column[row]
             )
 
         previous_column = current_column
@@ -35,11 +39,39 @@ def count_paths(width: int, height: int, corridor: list[str]) -> int:
     return previous_column[0] + previous_column[height - 1]
 
 
-def main() -> None:
-    width, height = map(int, sys.stdin.readline().split())
-    corridor = [sys.stdin.readline().strip() for _ in range(height)]
+def read_input() -> tuple[int, int, list[str]]:
+    with open("ijones.in", "r", encoding="utf-8") as file:
+        width, height = map(int, file.readline().split())
 
-    print(count_paths(width, height, corridor))
+        corridor = [
+            file.readline().strip()
+            for _ in range(height)
+        ]
+
+    return width, height, corridor
+
+
+def write_output(result: int) -> None:
+    with open("ijones.out", "w", encoding="utf-8") as file:
+        file.write(str(result))
+
+
+def main() -> None:
+    if not os.path.exists("ijones.in"):
+        print("Помилка: файл ijones.in не знайдено.")
+        return
+
+    width, height, corridor = read_input()
+
+    result = count_paths(
+        width,
+        height,
+        corridor,
+    )
+
+    write_output(result)
+
+    print("Програму виконано успішно.")
 
 
 if __name__ == "__main__":
